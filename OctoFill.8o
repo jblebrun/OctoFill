@@ -1,0 +1,151 @@
+﻿# Default register set
+:alias px v0
+:alias py v1
+:alias top v2
+:alias left v3
+:alias bottom v4
+:alias right v5
+
+# Fill register set
+:alias fx v0
+:alias fy v1
+
+# temp things
+:alias tmp vb
+:alias inkey vb
+:alias dotwidth vc
+
+:const WIDTH 64
+
+
+### 
+# Fill launch
+# markbound - THe current crosshair mark becomes this boundary for fill
+# marknew - The current crosshair mark becomes this boudnary after fill.
+# mark - The current crosshair boundary.
+# 
+# When we fill from a location, say left to right:
+:macro fill markbound marknew mark {
+    markbound := mark
+    runfill
+    marknew := mark
+
+}
+
+: moveup
+    sprite left py 1
+    if py == top begin py := bottom else py -= 1 end
+    sprite left py 1
+;
+
+: movedown
+    sprite left py 1
+    if py == bottom begin py := top else py += 1 end
+    sprite left py 1
+;
+
+: moveleft
+    sprite px top 1
+    if px == left begin px := right else px -= 1 end
+    sprite px top 1
+;
+
+: moveright
+    sprite px top 1
+    if px == right begin px := left else px += 1 end
+    sprite px top 1
+;
+
+# Messes up:
+# v0, v1, vc, i
+# Fill in an area of the screen.
+: runfill
+    # Start from the top left of the current region
+    fx := left
+    fy := top
+		 
+	  # Hide the crosshairs because XOR drawing.
+    i := dot
+    sprite px top 1
+    sprite left py 1
+		
+    # Gonna mess up some registers.
+    i := data
+    save v5
+		
+		# Fill from left to right,
+		# in Top-to-bottoms stripes
+    loop	
+				# Calculate the stripewidth. If there's a lot left to fill, it's 8.
+				# Otherwise, it is the amount left to fill.
+        dotwidth := right
+        dotwidth -= fx
+				dotwidth -= 1
+				tmp := 7
+				dotwidth &= tmp
+
+      	i := dot 
+        i += dotwidth
+
+        sprite fx fy 1
+
+        fy += 1
+        if fy >= bottom begin
+            fx += dotwidth
+						fx += 1
+            fy := top
+        end
+
+        if fx >= right then jump donefill
+    again
+: donefill
+
+    i := data
+    load v5
+		# Show the crosshairs
+    i := dot
+    sprite px top 1
+    sprite left py 1 
+;
+
+
+: main
+    px := 3
+    py := 3
+    top := 0
+    bottom := 32
+    left := 0
+    right := 64
+
+		# Start the crosshairs
+    i := dot
+    sprite px top 1
+    sprite left py 1
+
+		# Input loop
+    loop
+		    inkey := 5 if inkey key then moveup
+        inkey := 8 if inkey key then  movedown
+
+        inkey := 7 if inkey key then moveleft
+        inkey := 9 if inkey key then moveright
+
+
+        inkey := 4 if inkey key begin fill left right px end
+        inkey := 6 if inkey key begin fill top bottom py end
+        inkey := 0xA if inkey key begin fill right left px end
+        inkey := 0xB if inkey key begin fill bottom top py end
+    again
+
+# One byte before the dots, so we can just add a width
+: beforedots 0xFF
+# Various width "dots" for the remainder part of the fill routine.
+: dot 0x80 
+: dot2 0xC0 
+: dot3 0xE0
+: dot4 0xF0
+: dot5 0xF8
+: dot6 0xFC
+: dot7 0xFE
+: dot8 0xFF
+: data
